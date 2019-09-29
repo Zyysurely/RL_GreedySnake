@@ -20,25 +20,24 @@ def run_snake():
     brain = DeepQNetwork(4, "")
     snakeGame = SnakeEnv()
     #先随便给一个决策输入，启动游戏
-    observation0, reward0, terminal,score =snakeGame.step(np.array([0, 1, 0, 0]))
+    observation0, reward0, terminal,score =snakeGame.step(np.array([0, 0, 0, 1]))
     observation0 = preProcess(observation0)
     brain.setInitState(observation0[:,:,0])
 
     #开始正式游戏
     i = 1
-    while i<=100:
+    while i<=1000000:
         i = i + 1
         action = brain.choose_action()
         next_observation, reward, terminal, score = snakeGame.step(action)
-        print(reward)
+        # print(reward)
         
         next_observation = preProcess(next_observation)
         brain.learn(next_observation, action, reward, terminal)
-
         if(i%100) == 0:
             print(i)
     
-    # 画accumalated reward曲线
+    # 画loss和round step的曲线
     brain.plot_cost()
     snakeGame.plot_cost()
 

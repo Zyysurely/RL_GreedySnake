@@ -30,7 +30,7 @@ class SnakeEnv(object):
     def __init__(self):
         self.startx = [0, 0]
         self.starty = [0, 0]
-        self.snake = [[2, 0], [1, 0], [0, 0]]
+        self.snake = [[2, 1], [2, 0], [1, 0]]
         self.food = [2, 2]
         self.count = 3
         self.done = False     # 撞墙或者无法继续下去，则
@@ -44,12 +44,7 @@ class SnakeEnv(object):
         self.screen = pygame.display.set_mode((width, height))
         self.screen.fill((0, 0, 0))
         pygame.display.flip()        
-    
-    def render(self):
-        pass
 
-    def reset(self):
-        pass
 
     def reward_esitimate(self):
         dis = math.sqrt(pow((self.food[0]-self.snake[0][0]),2)+pow((self.food[1]-self.snake[0][1]),2))
@@ -67,7 +62,7 @@ class SnakeEnv(object):
             direction = UP
         if(action[3] == 1):
             direction = DOWN
-        self.movdirection(direction)
+        self.move_direction(direction)
 
         # 撞墙了
         if self.snake[0][0] < 0 or self.snake[0][0] == cellw :
@@ -91,15 +86,15 @@ class SnakeEnv(object):
             self.on_direction = RIGHT
             self.survive_step = 0
         else:
-            if(self.eaten == False):
-                self.reward = 0.1 + self.reward_esitimate()
-            else:
-                self.food = self.randomplace()
-                self.eaten = False
             if(self.conflict): # 方向不对
                 self.reward = 0
                 self.conflict = False
-        self.drawsnake()
+            elif(self.eaten == False):
+                self.reward = 0.1 + self.reward_esitimate()
+            else:
+                self.food = self.random_place()
+                self.eaten = False
+        self.draw_snake()
         img_data = pygame.surfarray.array3d(pygame.display.get_surface())
         return img_data, self.reward, self.done, self.count
 
@@ -109,7 +104,7 @@ class SnakeEnv(object):
                 return True
         return False     
 
-    def movdirection(self, direction):
+    def move_direction(self, direction):
         # 方向相反不能生效
         # print(self.snake)
         if((direction==RIGHT and self.on_direction==LEFT)or(direction==LEFT and self.on_direction==RIGHT)or(direction==UP and self.on_direction==DOWN)\
@@ -133,7 +128,7 @@ class SnakeEnv(object):
         else:
             self.snake.pop(self.count)
 
-    def drawsnake(self):
+    def draw_snake(self):
         self.screen = pygame.display.set_mode((width, height))
         index = 0
         for coord in self.snake:
@@ -151,7 +146,7 @@ class SnakeEnv(object):
         pygame.display.flip()
         self.speedCLOCK.tick(speed)
 
-    def randomplace(self):
+    def random_place(self):
         return [random.randint(0, cellw - 1), random.randint(0, cellh - 1)]
     
     def plot_cost(self):

@@ -22,7 +22,7 @@ class DeepQNetwork:
             gamma=0.99,
             replay_size=50000,
             batch_size=32,
-            output_graph=False    # 是否输出图
+            output_graph=True    # 是否输出图
     ):
         # 参数设定
         self.n_actions = n_actions   # action的大小
@@ -63,7 +63,7 @@ class DeepQNetwork:
             # $ tensorboard --logdir=logs
             tf.summary.FileWriter("./logs/", self.session.graph)
         
-        self.session.run(tf.initialize_all_variables())
+        self.session.run(tf.global_variables_initializer())
         self.cost_his = []
         # #try to load model
         # try:
