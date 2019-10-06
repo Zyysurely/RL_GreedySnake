@@ -15,7 +15,7 @@ width = 200
 height = 200
 cellw = int(width/cellsize)
 cellh = int(height/cellsize)
-speed = 15
+speed = 90
 RIGHT = 'right'
 LEFT = 'left'
 UP = 'up'
@@ -39,6 +39,8 @@ class SnakeEnv(object):
         self.eaten = False
         self.survive_step = 0
         self.survive_step_his = []
+        self.score = 0
+        self.score_his = []
         pygame.init()
         self.speedCLOCK = pygame.time.Clock()
         self.screen = pygame.display.set_mode((width, height))
@@ -52,7 +54,6 @@ class SnakeEnv(object):
         return reward
     
     def step(self, action):
-        self.survive_step += 1
         direction = RIGHT
         if(action[0] == 1):
             direction = RIGHT
@@ -74,7 +75,9 @@ class SnakeEnv(object):
         if self.count > 1 and self.snake[0][0] == self.snake[k][0] and self.snake[0][1] == self.snake[k][1]:
             self.done = True
         if(self.done):
+            # print(self.survive_step)
             self.survive_step_his.append(self.survive_step)
+            self.score_his.append(self.score)
             self.reward = -1
             # print("reset")
             self.startx = [0, 0]
@@ -85,15 +88,19 @@ class SnakeEnv(object):
             self.done = False
             self.on_direction = RIGHT
             self.survive_step = 0
+            self.score = 0
         else:
             if(self.conflict): # 方向不对
                 self.reward = 0
                 self.conflict = False
             elif(self.eaten == False):
-                self.reward = 0.1 + self.reward_esitimate()
+                # self.reward = 0.1 + self.reward_esitimate()
+                self.survive_step += 1
+                self.reward = 0
             else:
                 self.food = self.random_place()
                 self.eaten = False
+                self.survive_step += 1
         self.draw_snake()
         img_data = pygame.surfarray.array3d(pygame.display.get_surface())
         return img_data, self.reward, self.done, self.count
@@ -124,6 +131,7 @@ class SnakeEnv(object):
         if self.food_in_body():
             self.count +=1
             self.reward = 1
+            self.score += 1
             self.eaten = True
         else:
             self.snake.pop(self.count)
@@ -152,11 +160,18 @@ class SnakeEnv(object):
     def plot_cost(self):
         import matplotlib.pyplot as plt
         plt.figure()
-        print(self.survive_step)
+        # print(self.survive_step)
         plt.plot(np.arange(len(self.survive_step_his)), self.survive_step_his)
         plt.ylabel('survive steps')
         plt.xlabel('rounds')
         plt.savefig('./t2.png')
+
+        plt.figure()
+        # print(self.survive_step)
+        plt.plot(np.arange(len(self.score_his)), self.score_his)
+        plt.ylabel('score')
+        plt.xlabel('rounds')
+        plt.savefig('./t3.png')
         # plt.show()
 
 if(__name__ == "__main__"):

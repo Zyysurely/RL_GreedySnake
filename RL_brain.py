@@ -9,7 +9,7 @@ tf.set_random_seed(1)
 
 observe=60
 
-# Deep Q Network off-policy  input是[80, 80, 4]
+# Deep Q Network off-policy  input是[80, 80, 1]
 class DeepQNetwork:
     def __init__(self, 
             n_actions,
@@ -25,37 +25,30 @@ class DeepQNetwork:
             output_graph=True    # 是否输出图
     ):
         # 参数设定
-        self.n_actions = n_actions   # action的大小
-        self.FRAME_PER_ACTION = 1
-        self.GAMMA = gamma      # learning rate
-        self.OBSERVE = observe  # timesteps to observe before training
-        self.EXPLORE = explore  # frames when the error-tolerant rate
+        self.n_actions = n_actions              # action的大小
+        self.GAMMA = gamma                      # learning rate
+        self.OBSERVE = observe                  # timesteps to observe before training，一开始先不训练观察，有足够训练数据后再开始
+        self.EXPLORE = explore                  
         self.FINAL_EPSILON = final_epsilon      # final value of epsilon
         self.INITIAL_EPSILON = initial_epsilon  # starting value of epsilon
-        self.REPLAY_SIZE = replay_size  # number of previous frames to remember
-        self.BATCH_SIZE = batch_size    # size of minibatch
-        self.UPDATE_TIME = 100
-        self.learning_rate = 1e-6
-        self.whole_state = dict()
-        self.cost = 0
+        self.REPLAY_SIZE = replay_size          # 记忆库的大小
+        self.BATCH_SIZE = batch_size            # 每个训练的batch大小
+        self.UPDATE_TIME = 100                  # 更新target网络的步数
+        self.learning_rate = 1e-3               # nn的learning rate
+        self.cost = 0                           # loss
 
-
-        # init replay memory
         self.replayMemory = replay_memory
 
-        # init some parameters
         self.timestep = 0
         self.initial_timestep=current_timestep
-        self.accual_timestep=self.initial_timestep+self.timestep
+        self.accual_timestep=self.initial_timestep+self.timestep 
         #for loading mode
-        self.epsilon = self.INITIAL_EPSILON-(self.INITIAL_EPSILON-self.FINAL_EPSILON)/self.EXPLORE*self.accual_timestep
-        if self.epsilon<self.FINAL_EPSILON:
-            self.epsilon=self.FINAL_EPSILON
-        # self.epsilon = 0.1
+        # self.epsilon = self.INITIAL_EPSILON-(self.INITIAL_EPSILON-self.FINAL_EPSILON)/self.EXPLORE*self.accual_timestep
+        # if self.epsilon<self.FINAL_EPSILON:
+        #     self.epsilon=self.FINAL_EPSILON
+        self.epsilon = 0.2
         
         self._build_net()
-        # saving and loading networks
-        self.saver = tf.train.Saver(max_to_keep=1)
         self.session = tf.InteractiveSession()
         
         # 存储文件存储到tensorboard
@@ -65,13 +58,8 @@ class DeepQNetwork:
         
         self.session.run(tf.global_variables_initializer())
         self.cost_his = []
-        # #try to load model
-        # try:
-        #     self.saver.restore(self.session, model_path)
-        # except:
-        #     pass
     
-    # 搭建整个网络
+    # 搭建整个网络和loss
     def _build_net(self):
         # ------------------ all inputs ------------------------
         self.stateInput = tf.placeholder("float", [None, 80, 80, 4])
@@ -111,32 +99,34 @@ class DeepQNetwork:
         with tf.variable_scope('hard_replacement'):
             self.copyTargetQNetworkOperation = \
                 [self.W_conv1T.assign(self.W_conv1), self.b_conv1T.assign(self.b_conv1),self.W_conv2T.assign(self.W_conv2), self.b_conv2T.assign(self.b_conv2),self.W_conv3T.assign(self.W_conv3), self.b_conv3T.assign(self.b_conv3),self.W_fc1T.assign(self.W_fc1), self.b_fc1T.assign(self.b_fc1),self.W_fc2T.assign(self.W_fc2), self.b_fc2T.assign(self.b_fc2)]
-
-        Q_eval = tf.reduce_sum(tf.multiply(self.QValue, self.actionInput), reduction_indices=1)
-        self.loss = tf.reduce_mean(tf.squared_difference(self.rewardInput, Q_eval), name='TD_error')
-        self._train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+        with tf.variable_scope('q_eval'):
+            Q_eval = tf.reduce_sum(tf.multiply(self.QValue, self.actionInput), reduction_indices=1)
+        with tf.variable_scope('loss'):
+            self.loss = tf.reduce_mean(tf.squared_difference(self.rewardInput, Q_eval), name='TD_error')
+        with tf.variable_scope('train'):
+            self._train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
     # 建立卷积神经网络
-    def _cov_cnn(self, stateInput):
+    def _cov_cnn(self, stateInput):                                                                                                                                                                                                                                           
         # first convolution kernel:8*8*4*32
-        W_conv1 = self.weightVariable([8, 8, 4, 32])
-        b_conv1 = self.biasVariable([32])
+        W_conv1 = self.weight_variable([8, 8, 4, 32])
+        b_conv1 = self.bias_variable([32])
 
         # second convolution kernel4*4*32*64:
-        W_conv2 = self.weightVariable([4, 4, 32, 64])
-        b_conv2 = self.biasVariable([64])
+        W_conv2 = self.weight_variable([4, 4, 32, 64])
+        b_conv2 = self.bias_variable([64])
 
         #third convolution kernel:3*3*64*64
-        W_conv3 = self.weightVariable([3, 3, 64, 64])
-        b_conv3 = self.biasVariable([64])
+        W_conv3 = self.weight_variable([3, 3, 64, 64])
+        b_conv3 = self.bias_variable([64])
 
         #full connected layer:1600*512
-        W_fc1 = self.weightVariable([1600, 512])
-        b_fc1 = self.biasVariable([512])
+        W_fc1 = self.weight_variable([1600, 512])
+        b_fc1 = self.bias_variable([512])
 
         #output layer:512*actions
-        W_fc2 = self.weightVariable([512, self.n_actions])
-        b_fc2 = self.biasVariable([self.n_actions])
+        W_fc2 = self.weight_variable([512, self.n_actions])
+        b_fc2 = self.bias_variable([self.n_actions])
 
         # combine all layers together
         # hidden layers
@@ -155,9 +145,8 @@ class DeepQNetwork:
         h_conv3_flat = tf.reshape(h_conv3, [-1, 1600])
         h_fc1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc1) + b_fc1)
 
-        #output layer，预测的q value值
+        #output layer，预测的q value
         QValue = tf.matmul(h_fc1, W_fc2) + b_fc2
-
         return QValue, W_conv1, b_conv1, W_conv2, b_conv2, W_conv3, b_conv3, W_fc1, b_fc1, W_fc2, b_fc2
 
     # 训练过程
@@ -168,21 +157,16 @@ class DeepQNetwork:
         reward_batch = [data[2] for data in minibatch]
         nextState_batch = [data[3] for data in minibatch]
 
-        #setting lost function
+        # 根据下一个状态的值计算q_target，也就是q real
         y_batch = []
         QValue_batch = self.QValueT.eval(feed_dict={self.stateInputT: nextState_batch})
         for i in range(0, self.BATCH_SIZE):
-            terminal = minibatch[i][4]
-            if terminal:
-                y_batch.append(reward_batch[i])
-            else:
-                y_batch.append(reward_batch[i] + self.GAMMA * np.max(QValue_batch[i]))
+            y_batch.append(reward_batch[i] + self.GAMMA * np.max(QValue_batch[i]))
         _, self.cost = self.session.run([self._train_op, self.loss], 
                 feed_dict={
                     self.rewardInput: y_batch,
                     self.actionInput: action_batch,
                     self.stateInput: state_batch})
-        # # save network every 1000 iteration
         # if self.timestep % 1000 == 0:
         #     self.saver.save(self.session, './saved_networks/network' + '-dqn', global_step=self.timestep+self.initial_timestep)
         if self.timestep % self.UPDATE_TIME == 0:
@@ -196,19 +180,8 @@ class DeepQNetwork:
         #control the size of replayMemory
         if len(self.replayMemory) > self.REPLAY_SIZE:
             self.replayMemory.popleft()
-        if self.timestep > self.OBSERVE and self.timestep % 5 == 0:
+        if self.timestep > self.OBSERVE and self.timestep % 2 == 0:
             self._train_qvalue()
-
-        # print information
-        if self.timestep <= self.OBSERVE:
-            state = "observe"
-        elif self.timestep  > self.OBSERVE and self.timestep  <= self.OBSERVE + self.EXPLORE:
-            state = "explore"
-        else:
-            state = "train"
-
-        self.whole_state={"TIMESTEP":self.timestep +self.initial_timestep,"STATE":state, "EPSILON":self.epsilon,"ACTUAL":int(self.timestep+self.initial_timestep)}
-
         self.currentState = newState
         self.timestep  += 1
 
@@ -217,33 +190,31 @@ class DeepQNetwork:
         action = np.zeros(self.n_actions)
 
         #epsilon stragety
-        if self.timestep  % self.FRAME_PER_ACTION == 0:
-            l = random.random()
-            if l <= self.epsilon:
-                action_index = random.randrange(self.n_actions)
-                action[action_index] = 1
-            else:
-                # print(QValue)
-                action_index = np.argmax(QValue)
-                action[action_index] = 1
+        l = random.random()
+        if l <= self.epsilon:
+            action_index = random.randrange(self.n_actions)
+            action[action_index] = 1
         else:
-            action[0] = 1  # do nothing
+            # print(QValue)
+            action_index = np.argmax(QValue)
+            action[action_index] = 1
 
         # change episilon
-        if self.epsilon > self.FINAL_EPSILON and self.accual_timestep > self.OBSERVE:
-            self.epsilon= self.INITIAL_EPSILON-(self.INITIAL_EPSILON - self.FINAL_EPSILON) / self.EXPLORE*self.accual_timestep
-
+        # if self.epsilon > self.FINAL_EPSILON and self.accual_timestep > self.OBSERVE:
+        #     self.epsilon= self.INITIAL_EPSILON-(self.INITIAL_EPSILON - self.FINAL_EPSILON) / self.EXPLORE*self.
+        # accual_timestep
+        # print(self.epsilon)
         return action
 
-    def setInitState(self, observation):
+    def set_init_state(self, observation):
         self.currentState = np.stack((observation, observation, observation, observation), axis=2)
 
-    def weightVariable(self, shape):
+    def weight_variable(self, shape):
         # 截断的正态分布的
         initial = tf.truncated_normal(shape, stddev=0.01)
         return tf.Variable(initial)
 
-    def biasVariable(self, shape):
+    def bias_variable(self, shape):
         initial = tf.constant(0.01, shape=shape)
         return tf.Variable(initial)
 
@@ -253,15 +224,11 @@ class DeepQNetwork:
     def maxPool_2x2(self, x):
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
 
-
-    def getState(self):
-        return self.whole_state
-
     def plot_cost(self):
         import matplotlib.pyplot as plt
         plt.figure()
         plt.plot(np.arange(len(self.cost_his)), self.cost_his)
         plt.ylabel('Cost')
         plt.xlabel('training steps')
-        plt.savefig('./tl.png')
+        plt.savefig('./cost.png')
         # plt.show()
